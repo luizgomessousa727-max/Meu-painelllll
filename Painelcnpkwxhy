@@ -1,0 +1,382 @@
+-- ==========================================
+-- PAINEL KWXHY — 8 SCRIPTS COMPLETOS
+-- ==========================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+local CoreGui = game:GetService("CoreGui")
+local SoundService = game:GetService("SoundService")
+
+local LocalPlayer = Players.LocalPlayer
+local mouse = LocalPlayer:GetMouse()
+
+-- ESTADO
+local State = {
+    Speed = { Active = false, CurrentWeight = 20.6, WeightName = "CoMWeight_Object", Offset = Vector3.new(0, 0, 6) },
+    Sky = { Active = false, SkyObj = nil },
+    Gun = { Active = false, Connections = {}, Sound = nil },
+    Korblox = { Active = false, Connections = {} },
+    Headless = { Active = false },
+    Atmosphere = { Active = false, Backup = {} },
+    EmoteSpeed = { Active = false, Connections = {}, CharConn = nil },
+    Crosshair = { Active = false, Connections = {}, CharConn = nil }
+}
+
+-- ⚡ SPEED GLITCH
+local function ApplyWeight(val)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    local old = char:FindFirstChild(State.Speed.WeightName)
+    if old then old:Destroy() end
+    if val > 0 then
+        local w = Instance.new("Part")
+        w.Name = State.Speed.WeightName
+        w.Size = Vector3.new(1,1,1)
+        w.Transparency = 1
+        w.CanCollide = false
+        w.Parent = char
+        local weld = Instance.new("Weld")
+        weld.Part0 = root
+        weld.Part1 = w
+        weld.C0 = CFrame.new(State.Speed.Offset)
+        weld.Parent = w
+        w.CustomPhysicalProperties = PhysicalProperties.new(val, 0.3, 0.5)
+    end
+end
+
+-- 🔴 CÉU VERMELHO
+local function SetRedSky(ativo)
+    if ativo then
+        for _, c in pairs(Lighting:GetChildren()) do if c:IsA("Sky") then c:Destroy() end end
+        local sky = Instance.new("Sky")
+        sky.Name = "CeuVermelho"
+        sky.SkyboxBk = "rbxassetid://159454299"
+        sky.SkyboxDn = "rbxassetid://159454296"
+        sky.SkyboxFt = "rbxassetid://159454293"
+        sky.SkyboxLf = "rbxassetid://159454286"
+        sky.SkyboxRt = "rbxassetid://159454300"
+        sky.SkyboxUp = "rbxassetid://159454288"
+        sky.Parent = Lighting
+        State.Sky.SkyObj = sky
+    else
+        if State.Sky.SkyObj then State.Sky.SkyObj:Destroy() State.Sky.SkyObj = nil end
+    end
+end
+
+-- 🔫 SISTEMA ARMA
+local function SetGunSystem(ativo)
+    if ativo then
+        local SOUND_ID = "rbxassetid://6968135315"
+        local TARGET_TOOL_NAME = "Gun"
+        local COOLDOWN_DURATION = 2
+        local enabled = true
+        local actionSound = Instance.new("Sound")
+        actionSound.SoundId = SOUND_ID
+        actionSound.Volume = 1
+        actionSound.Parent = SoundService
+        State.Gun.Sound = actionSound
+        local function setupGunSystem(character)
+            local humanoid = character:WaitForChild("Humanoid", 10)
+            local animator = humanoid and humanoid:WaitForChild("Animator", 10)
+            local lastUnequippedTime = 0
+            if animator then
+                State.Gun.Connections.Anim = animator.AnimationPlayed:Connect(function(track)
+                    if not enabled then return end
+                    local tool = character:FindFirstChildOfClass("Tool")
+                    local isHoldingGun = (tool and tool.Name == TARGET_TOOL_NAME)
+                    local timeSinceUnequip = os.clock() - lastUnequippedTime
+                    if (isHoldingGun or timeSinceUnequip <= COOLDOWN_DURATION) and track.Priority == Enum.AnimationPriority.Action then
+                        track:Stop()
+                    end
+                end)
+            end
+            State.Gun.Connections.Add = character.ChildAdded:Connect(function(child)
+                if child:IsA("Tool") and child.Name == TARGET_TOOL_NAME then actionSound:Play() end
+            end)
+            State.Gun.Connections.Remove = character.ChildRemoved:Connect(function(child)
+                if child:IsA("Tool") and child.Name == TARGET_TOOL_NAME then
+                    actionSound:Play()
+                    lastUnequippedTime = os.clock()
+                end
+            end)
+        end
+        if LocalPlayer.Character then setupGunSystem(LocalPlayer.Character) end
+        State.Gun.Connections.Char = LocalPlayer.CharacterAdded:Connect(setupGunSystem)
+    else
+        for _, v in pairs(State.Gun.Connections) do if v then v:Disconnect() end end
+        State.Gun.Connections = {}
+        if State.Gun.Sound then State.Gun.Sound:Destroy() end
+    end
+end
+
+-- 🦵 KORBLOX
+local korbloxBielConnections = {}
+local function applyKorbloxBiel()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid", 5)
+    if not hum or char:FindFirstChild("KorbloxFolder") then return end
+    local folder = Instance.new("Folder")
+    folder.Name = "KorbloxFolder"
+    folder.Parent = char
+    if hum.RigType == Enum.HumanoidRigType.R15 then
+        local ru = char:WaitForChild("RightUpperLeg", 3)
+        local rl = char:WaitForChild("RightLowerLeg", 3)
+        local rf = char:WaitForChild("RightFoot", 3)
+        ru.Transparency = 1 rl.Transparency = 1 rf.Transparency = 1
+        local p = Instance.new("Part")
+        p.Name = "KorbloxR15Visual"
+        p.Size = Vector3.new(1, 2, 1)
+        p.Transparency = 1 p.CanCollide = false p.Massless = true p.Parent = folder
+        local m = Instance.new("SpecialMesh")
+        m.MeshId = "rbxassetid://902942096"
+        m.TextureId = "rbxassetid://902843398"
+        m.Scale = Vector3.new(1,1,1) m.Parent = p
+        local w = Instance.new("Weld")
+        w.Part0 = ru w.Part1 = p w.C0 = CFrame.new(0.1, 0.2, 0) w.Parent = p
+    elseif hum.RigType == Enum.HumanoidRigType.R6 then
+        local rl = char:WaitForChild("Right Leg", 3)
+        for _, v in ipairs(char:GetChildren()) do if v:IsA("CharacterMesh") and v.BodyPart == Enum.BodyPart.RightLeg then v:Destroy() end end
+        rl.Transparency = 1
+        local p = Instance.new("Part")
+        p.Name = "KorbloxR6Visual"
+        p.Size = Vector3.new(1, 2, 1)
+        p.Transparency = 1 p.CanCollide = false p.Massless = true p.Parent = folder
+        local m = Instance.new("SpecialMesh")
+        m.MeshType = Enum.MeshType.FileMesh
+        m.MeshId = "rbxassetid://101851696"
+        m.TextureId = "rbxassetid://101851254"
+        m.Scale = Vector3.new(1,1,1) m.Parent = p
+        local w = Instance.new("Weld")
+        w.Part0 = rl w.Part1 = p w.C0 = CFrame.new(0,0,0) w.Parent = p
+    end
+end
+local function SetKorblox(ativo)
+    if ativo then
+        if LocalPlayer.Character then task.spawn(applyKorbloxBiel) end
+        table.insert(korbloxBielConnections, LocalPlayer.CharacterAdded:Connect(function() task.wait(0.5) applyKorbloxBiel() end))
+    else
+        for _, v in ipairs(korbloxBielConnections) do pcall(function() v:Disconnect() end) end
+        table.clear(korbloxBielConnections)
+        local char = LocalPlayer.Character
+        if char then
+            if char:FindFirstChild("KorbloxFolder") then char.KorbloxFolder:Destroy() end
+            local hum = char:FindFirstChild("Humanoid")
+            if hum then
+                if hum.RigType == Enum.HumanoidRigType.R15 then
+                    for _, n in ipairs({"RightUpperLeg","RightLowerLeg","RightFoot"}) do
+                        local p = char:FindFirstChild(n) if p then p.Transparency = 0 end
+                    end
+                elseif hum.RigType == Enum.HumanoidRigType.R6 then
+                    local rl = char:FindFirstChild("Right Leg") if rl then rl.Transparency = 0 end
+                end
+            end
+        end
+    end
+end
+
+-- 😶‍🌫️ HEADLESS
+local function setHeadless(char, state)
+    local head = char:FindFirstChild("Head")
+    if head then
+        head.Transparency = state and 1 or 0
+        local face = head:FindFirstChild("face")
+        if face then face.Transparency = state and 1 or 0 end
+    end
+end
+
+-- 🌙 ATMOSFERA
+local function SetAtmosphere(ativo)
+    if ativo then
+        State.Atmosphere.Backup = {FogColor=Lighting.FogColor,FogStart=Lighting.FogStart,FogEnd=Lighting.FogEnd,ClockTime=Lighting.ClockTime}
+        Lighting.FogColor = Color3.fromRGB(15,15,15)
+        Lighting.FogStart = 10 Lighting.FogEnd = 135 Lighting.ClockTime = 3
+    else
+        local bk = State.Atmosphere.Backup
+        if next(bk) then
+            Lighting.FogColor = bk.FogColor
+            Lighting.FogStart = bk.FogStart
+            Lighting.FogEnd = bk.FogEnd
+            Lighting.ClockTime = bk.ClockTime
+        end
+    end
+end
+
+-- 🏃 EMOTE SPEED
+local itensBalao = {WaterBalloon2024=true,SnowballToy2020=true,IceCream=true}
+local function aplicarSistemaSpeed(char)
+    local hum = char:WaitForChild("Humanoid")
+    local root = char:WaitForChild("HumanoidRootPart")
+    if char:FindFirstChild("GlitchPart") then char.GlitchPart:Destroy() end
+    local gp = Instance.new("Part")
+    gp.Name = "GlitchPart"
+    gp.Size = Vector3.new(2,2,2)
+    gp.Transparency = 1 gp.CanCollide = false gp.Parent = char
+    local w = Instance.new("Weld")
+    w.Part0 = root w.Part1 = gp w.Parent = gp
+    local function setOff(z) w.C0 = CFrame.new(0,0,z) end
+    local emoteAtivo, efeito, off, tool, escada, espera, fim = nil, false, 0, nil, false, false, false
+    local em = {["rbxassetid://15609995579"]="normal",["rbxassetid://107481557610007"]="forte"}
+    local function ativar(z) efeito=true off=z setOff(z) end
+    local function desativar() efeito=false escada=false off=0 espera=false fim=false setOff(0) end
+    hum.AnimationPlayed:Connect(function(t)
+        if t.Animation then local tipo = em[t.Animation.AnimationId]
+            if tipo then emoteAtivo=tipo off=0 espera=false fim=false
+                t.Stopped:Connect(function() emoteAtivo=nil espera=true fim=tool~=nil end)
+            end
+        end
+    end)
+    char.ChildRemoved:Connect(function(o)
+        if itensBalao[o.Name] then
+            if emoteAtivo=="normal" then off=10.5 elseif emoteAtivo=="forte" then off=25 end
+            if efeito then setOff(off) end
+        end
+        if o:IsA("Tool") and o==tool then tool=nil if espera and fim then desativar() end end
+    end)
+    char.ChildAdded:Connect(function(o)
+        if o:IsA("Tool") then
+            tool=o
+            if espera and not fim then desativar() return end
+            if hum:GetState()==Enum.HumanoidStateType.Climbing then
+                escada=true efeito=true setOff(3.5)
+            elseif emoteAtivo=="normal" then ativar(off>0 and off or 7.5)
+            elseif emoteAtivo=="forte" then ativar(off>0 and off or 10.5)
+            end
+        end
+    end)
+    task.spawn(function() while char.Parent and State.EmoteSpeed.Active do task.wait(0.05) if efeito then setOff(escada and 3.5 or off) end end end)
+end
+local function SetEmoteSpeed(ativo)
+    State.EmoteSpeed.Active=ativo
+    if ativo then
+        if LocalPlayer.Character then aplicarSistemaSpeed(LocalPlayer.Character) end
+        State.EmoteSpeed.CharConn=LocalPlayer.CharacterAdded:Connect(aplicarSistemaSpeed)
+    else
+        if State.EmoteSpeed.CharConn then State.EmoteSpeed.CharConn:Disconnect() end
+        for _,v in ipairs(State.EmoteSpeed.Connections) do pcall(function() v:Disconnect() end) end
+        table.clear(State.EmoteSpeed.Connections)
+        if LocalPlayer.Character then local p=LocalPlayer.Character:FindFirstChild("GlitchPart") if p then p:Destroy() end end
+    end
+end
+
+-- 🎯 MIRA BRANCA
+local WHITE_CROSSHAIR = "rbxassetid://134918171998030"
+local crosshairActive = false
+local function atualizarMira(on) mouse.Icon = on and WHITE_CROSSHAIR or "" end
+local function isArrow(o) return (o:IsA("TextLabel") or o:IsA("TextButton")) and (o.Text=="<" or o.Text==">") end
+local function hideShift()
+    local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui") if not pg then return end
+    for _,d in ipairs(pg:GetDescendants()) do
+        if d:IsA("GuiObject") then local n=d.Name:lower() if n:find("shift") or n:find("mouse") or n:find("lock") then d.Visible=false end end
+    end
+end
+local function hideArrow(a) local p=a.Parent for i=1,5 do if not p or not p:IsA("GuiObject") then break end local s=p.AbsoluteSize if s.X>=50 and s.X<=350 and s.Y>=50 and s.Y<=400 then p.Visible=false return true end p=p.Parent end if a:IsA("TextButton") then a.Visible=false return true end return false end
+local function monitorTool(t) if not t:IsA("Tool") or t.Name~="Gun" or t:GetAttribute("CrosshairConectado") then return end t:SetAttribute("CrosshairConectado",true) t.Equipped:Connect(function() if crosshairActive then atualizarMira(true) end end) t.Unequipped:Connect(function() atualizarMira(false) end) end
+local function SetCrosshair(ativo)
+    crosshairActive=ativo
+    if ativo then
+        LocalPlayer.DevEnableMouseLock=true
+        task.wait(1.5)
+        hideShift()
+        local pg = LocalPlayer:WaitForChild("PlayerGui")
+        for _,d in ipairs(pg:GetDescendants()) do if isArrow(d) then hideArrow(d) end end
+        State.Crosshair.Connections[#State.Crosshair.Connections+1]=pg.DescendantAdded:Connect(function(o) task.wait(0.15) if o:IsA("GuiObject") then local n=o.Name:lower() if n:find("shift") or n:find("mouse") or n:find("lock") then o.Visible=false end end if isArrow(o) then hideArrow(o) end end)
+        local function setupChar(c) atualizarMira(false) for _,d in ipairs(c:GetChildren()) do monitorTool(d) end State.Crosshair.Connections[#State.Crosshair.Connections+1]=c.ChildAdded:Connect(monitorTool) local bp=LocalPlayer:WaitForChild("Backpack") for _,t in ipairs(bp:GetChildren()) do monitorTool(t) end State.Crosshair.Connections[#State.Crosshair.Connections+1]=bp.ChildAdded:Connect(monitorTool) end
+        if LocalPlayer.Character then task.spawn(setupChar,LocalPlayer.Character) end
+        State.Crosshair.CharConn=LocalPlayer.CharacterAdded:Connect(setupChar)
+    else
+        atualizarMira(false)
+        if State.Crosshair.CharConn then State.Crosshair.CharConn:Disconnect() State.Crosshair.CharConn=nil end
+        for _,v in ipairs(State.Crosshair.Connections) do pcall(function() v:Disconnect() end) end
+        table.clear(State.Crosshair.Connections)
+    end
+end
+
+-- ==========================================
+-- INTERFACE
+-- ==========================================
+
+if CoreGui:FindFirstChild("KWXHY_Painel") then CoreGui.KWXHY_Painel:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "KWXHY_Painel"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = CoreGui:FindFirstChild("RobloxGui") or CoreGui
+
+-- BOTÃO PRINCIPAL ARRASTÁVEL
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(0, 110, 0, 45)
+ToggleButton.Position = UDim2.new(0.02, 0, 0.45, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(255, 105, 180)
+ToggleButton.Text = "KWXHY"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.TextSize = 16
+ToggleButton.Active = true
+ToggleButton.Draggable = true
+ToggleButton.Parent = ScreenGui
+Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 12)
+
+-- PAINEL
+local MainPanel = Instance.new("Frame")
+MainPanel.Name = "MainPanel"
+MainPanel.Size = UDim2.new(0, 260, 0, 580)
+MainPanel.Position = UDim2.new(0.02, 0, 0.52, 0)
+MainPanel.BackgroundColor3 = Color3.fromRGB(255, 105, 180)
+MainPanel.Active = true
+MainPanel.Draggable = true
+MainPanel.Visible = false
+MainPanel.Parent = ScreenGui
+Instance.new("UICorner", MainPanel).CornerRadius = UDim.new(0, 12)
+local Stroke = Instance.new("UIStroke", MainPanel)
+Stroke.Color = Color3.fromRGB(255, 20, 147)
+Stroke.Thickness = 2
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 50)
+Title.BackgroundTransparency = 1
+Title.Text = "💖 KWXHY 💖"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 20
+Title.Parent = MainPanel
+
+local function CriarBotao(nome, y, cb)
+    local B = Instance.new("TextButton")
+    B.Size = UDim2.new(0, 220, 0, 40)
+    B.Position = UDim2.new(0, 20, 0, y)
+    B.BackgroundColor3 = Color3.fromRGB(255, 20, 147)
+    B.Text = nome..": ❌ DESATIVADO"
+    B.TextColor3 = Color3.fromRGB(255, 255, 255)
+    B.Font = Enum.Font.GothamBold
+    B.TextSize = 12
+    B.Parent = MainPanel
+    Instance.new("UICorner", B).CornerRadius = UDim.new(0, 8)
+    local on = false
+    B.MouseButton1Click:Connect(function()
+        on = not on
+        if on then B.Text = nome..": ✅ ATIVADO" B.BackgroundColor3 = Color3.fromRGB(50,205,50) cb(true)
+        else B.Text = nome..": ❌ DESATIVADO" B.BackgroundColor3 = Color3.fromRGB(255,20,147) cb(false) end
+    end)
+end
+
+ToggleButton.MouseButton1Click:Connect(function() MainPanel.Visible = not MainPanel.Visible end)
+
+CriarBotao("⚡ SPEED GLITCH", 60, function(v) State.Speed.Active=v if v then ApplyWeight(20.6) else ApplyWeight(0) end end)
+CriarBotao("🏃 EMOTE SPEED", 110, SetEmoteSpeed)
+CriarBotao("🎯 MIRA BRANCA", 160, SetCrosshair)
+CriarBotao("🔴 CÉU VERMELHO", 210, SetRedSky)
+CriarBotao("🔫 SISTEMA ARMA", 260, SetGunSystem)
+CriarBotao("🦵 KORBLOX", 310, SetKorblox)
+CriarBotao("😶‍🌫️ HEADLESS", 360, function(v) State.Headless.Active=v if LocalPlayer.Character then setHeadless(LocalPlayer.Character, v) end end)
+CriarBotao("🌙 NÉVOA + HORA", 410, SetAtmosphere)
+
+LocalPlayer.CharacterAdded:Connect(function(c) task.wait(0.4) if State.Speed.Active then ApplyWeight(20.6) end if State.Headless.Active then setHeadless(c,true) end if State.EmoteSpeed.Active then aplicarSistemaSpeed(c) end end)
+
+UserInputService.InputBegan:Connect(function(i,gp) if gp then return end if i.KeyCode==Enum.KeyCode.H then State.Headless.Active=not State.Headless.Active if LocalPlayer.Character then setHeadless(LocalPlayer.Character,State.Headless.Active) end end end)
+
+print("[KWXHY] ✅ CARREGADO COM SUCESSO! 🩷")
